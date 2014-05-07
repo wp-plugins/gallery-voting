@@ -4,7 +4,7 @@ Donate link: http://tribulant.com
 Tags: gallery, voting, contest, likes
 Requires at least: 3.8
 Tested up to: 3.9
-Stable tag: 1.1
+Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -30,11 +30,14 @@ This section describes how to install the plugin and get it working.
 
 == Changelog ==
 
+= 1.1.1 =
+
+* ADD: Maximum votes per photo/image/attachment setting
+
 = 1.1 =
 
 * ADD: Setting to choose between cookie and IP address tracking
 * ADD: Maximum overall votes setting
-* ADD: Maximum votes per photo/image/attachment setting
 
 = 1.0 =
 * Initial release

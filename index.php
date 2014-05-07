@@ -5,7 +5,7 @@ Plugin Name: Gallery Voting
 Plugin URI: http://tribulant.com
 Description: Voting/likes for the WordPress <code>[gallery]</code> shortcode photos/images.
 Author: Tribulant Software
-Version: 1.1
+Version: 1.1.1
 Author URI: http://tribulant.com
 Text Domain: gallery-voting
 Domain Path: /languages
