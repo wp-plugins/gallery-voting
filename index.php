@@ -35,6 +35,10 @@ if (!class_exists('GalleryVoting')) {
 			.gallery-caption {
 				margin-left: 0;
 				}');
+				
+			add_option('gallery_voting_max_all', "3");
+			add_option('gallery_voting_max_same', "1");
+			add_option('gallery_voting_tracking', "ipaddress");
 	
 			global $wpdb;
 			$name = $wpdb -> prefix . 'galleryvotes';
@@ -250,40 +254,80 @@ if (!class_exists('GalleryVoting')) {
 			<?php
 		}
 		
-		function vote() {
-			header("Content-Type: application/json");
-		
+		function vote() {		
 			global $wpdb;
+			
+			$max_all = get_option('gallery_voting_max_all');
+			$max_same = get_option('gallery_voting_max_same');
+			$tracking = get_option('gallery_voting_tracking');
 			
 			$error = false;
 			$success = false;
 			
 			if (!empty($_POST)) {
-				if (!empty($_POST['attachment_id'])) {
-					$ip_address = $_SERVER['REMOTE_ADDR'];
+				if (!empty($_POST['attachment_id'])) {					
 					$attachment_id = $_POST['attachment_id'];
-					$votecountquery = "SELECT COUNT(`id`) FROM " . $wpdb -> prefix . "galleryvotes WHERE `ip_address` = '" . $ip_address . "'";
-					$votecount = $wpdb -> get_var($votecountquery);
 					
-					if (empty($votecount) || $votecount < 3) {
-						//same vote?
-						$votecountsamequery = "SELECT * FROM `" . $wpdb -> prefix . "galleryvotes` WHERE `ip_address` = '" . $ip_address . "' AND `attachment_id` = '" . $attachment_id . "'";
-						$votecountsame = $wpdb -> get_results($votecountsamequery);
-						
-						if (empty($votecountsame)) {
-							$query = "INSERT INTO `" . $wpdb -> prefix . "galleryvotes` (`ip_address`, `attachment_id`, `created`, `modified`) 
-							VALUES ('" . $ip_address . "', '" . $attachment_id . "', '" . date("Y-m-d H:i:s") . "', '" . date("Y-m-d H:i:s") . "');";
+					switch ($tracking) {
+						case 'cookie'			:
+							$votecount = (empty($_COOKIE['gallery_voting_all'])) ? 0 : $_COOKIE['gallery_voting_all'];
+							$votecountsame = (empty($_COOKIE['gallery_voting_same_' . $attachment_id])) ? 0 : $_COOKIE['gallery_voting_same_' . $attachment_id];
 							
-							if ($wpdb -> query($query)) {
-								$success = true;
+							if (empty($votecount) || $votecount < $max_all) {
+								if (empty($votecountsame) || $votecountsame < $max_same) {
+									$query = "INSERT INTO `" . $wpdb -> prefix . "galleryvotes` (`ip_address`, `attachment_id`, `created`, `modified`) 
+									VALUES ('" . $ip_address . "', '" . $attachment_id . "', '" . date("Y-m-d H:i:s") . "', '" . date("Y-m-d H:i:s") . "');";
+									
+									if ($wpdb -> query($query)) {
+										$success = true;
+										
+										setcookie('gallery_voting_all', ($votecount + 1), (time() + 60 * 60 * 24 * 30));
+										setcookie('gallery_voting_same_' . $attachment_id, ($votecountsame + 1), (time() + 60 * 60 * 24 * 30));
+									} else {
+										$error = "Database could not be updated";
+									}
+								} else {
+									if ($max_same == 1) {
+										$error = "You have voted for this photo already";
+									} else {
+										$error = sprintf("You have already voted %s times for this photo", $max_same);
+									}
+								}
 							} else {
-								$error = "Database could not be updated";
+								$error = sprintf("You have already voted %s times", $max_all);
 							}
-						} else {
-							$error = "You have voted for this photo already";
-						}
-					} else {
-						$error = "You have voted 3 times overall already";
+							break;
+						case 'ipaddress'		:
+						default					:
+							$ip_address = $_SERVER['REMOTE_ADDR'];
+							$votecountquery = "SELECT COUNT(`id`) FROM " . $wpdb -> prefix . "galleryvotes WHERE `ip_address` = '" . $ip_address . "'";
+							$votecount = $wpdb -> get_var($votecountquery);
+							
+							if (empty($votecount) || $votecount < $max_all) {
+								//same vote?
+								$votecountsamequery = "SELECT * FROM `" . $wpdb -> prefix . "galleryvotes` WHERE `ip_address` = '" . $ip_address . "' AND `attachment_id` = '" . $attachment_id . "'";
+								$votecountsame = $wpdb -> get_results($votecountsamequery);
+								
+								if (empty($votecountsame) || $votecountsame < $max_same) {
+									$query = "INSERT INTO `" . $wpdb -> prefix . "galleryvotes` (`ip_address`, `attachment_id`, `created`, `modified`) 
+									VALUES ('" . $ip_address . "', '" . $attachment_id . "', '" . date("Y-m-d H:i:s") . "', '" . date("Y-m-d H:i:s") . "');";
+									
+									if ($wpdb -> query($query)) {
+										$success = true;
+									} else {
+										$error = "Database could not be updated";
+									}
+								} else {
+									if ($max_same == 1) {
+										$error = "You have voted for this photo already";
+									} else {
+										$error = sprintf("You have already voted %s times for this photo", $max_same);
+									}
+								}
+							} else {
+								$error = sprintf("You have already voted %s times", $max_all);
+							}	
+							break;
 					}
 				} else {
 					$error = "No photo was specified";
@@ -308,6 +352,7 @@ if (!class_exists('GalleryVoting')) {
 				);
 			}
 			
+			header("Content-Type: application/json");
 			echo json_encode($data);
 			
 			exit();
@@ -326,6 +371,10 @@ if (!class_exists('GalleryVoting')) {
 				
 				
 			}
+			
+			$max_all = get_option('gallery_voting_max_all');
+			$max_same = get_option('gallery_voting_max_same');
+			$tracking = get_option('gallery_voting_tracking');
 		
 			?>
 			
@@ -335,6 +384,25 @@ if (!class_exists('GalleryVoting')) {
 				<form action="" method="post">
 					<table class="form-table">
 						<tbody>
+							<tr>
+								<th><label for="max_all">Max Votes Overall</label></th>
+								<td>
+									<input type="text" name="max_all" value="<?php echo esc_attr(stripslashes($max_all)); ?>" id="max_all" class="widefat" style="width:45px;" /> 
+								</td>
+							</tr>
+							<tr>
+								<th><label for="max_same">Max Votes Per Photo</label></th>
+								<td>
+									<input type="text" name="max_same" value="<?php echo esc_attr(stripslashes($max_same)); ?>" id="max_same" class="widefat" style="width:45px;" />
+								</td>
+							</tr>
+							<tr>
+								<th><label for="tracking_ipaddress">Tracking</label></th>
+								<td>
+									<label><input <?php echo (!empty($tracking) && $tracking == "cookie") ? 'checked="checked"' : ''; ?> type="radio" name="tracking" value="cookie" id="tracking_cookie" /> Cookie</label>
+									<label><input <?php echo (!empty($tracking) && $tracking == "ipaddress") ? 'checked="checked"' : ''; ?> type="radio" name="tracking" value="ipaddress" id="tracking_ipaddress" /> IP Address</label>
+								</td>
+							</tr>
 							<tr>
 								<th><label>Custom CSS</label></th>
 								<td>
