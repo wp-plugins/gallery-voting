@@ -20,7 +20,20 @@ if (!class_exists('GalleryVoting')) {
 		}
 		
 		function initialize_options() {
-			add_option('gallery_voting_css', '.gallery {
+			add_option('gallery_voting_css', '
+			@media (max-width: 768px) {
+				.gallery-item {
+					width: 50% !important;
+				}
+			}
+			
+			@media (max-width: 480px) { 
+				.gallery-item {
+					width: 100% !important;
+				}
+			}
+			
+			.gallery {
 				margin: auto;
 			}
 			.gallery-item {
