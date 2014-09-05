@@ -5,7 +5,7 @@ Plugin Name: Gallery Voting
 Plugin URI: http://tribulant.com
 Description: Voting/likes for the WordPress <code>[gallery]</code> shortcode photos/images.
 Author: Tribulant Software
-Version: 1.1.1
+Version: 1.2
 Author URI: http://tribulant.com
 Text Domain: gallery-voting
 Domain Path: /languages
@@ -49,6 +49,7 @@ if (!class_exists('GalleryVoting')) {
 				margin-left: 0;
 				}');
 				
+			add_option('gallery_voting_usersallowed', "all");
 			add_option('gallery_voting_max_all', "3");
 			add_option('gallery_voting_max_same', "1");
 			add_option('gallery_voting_tracking', "ipaddress");
@@ -227,6 +228,21 @@ if (!class_exists('GalleryVoting')) {
 			return $output;
 		}
 		
+		function plugins_loaded() {
+			$usersallowed = get_option('gallery_voting_usersallowed');
+			if (!empty($usersallowed) && ($usersallowed == "all" || ($usersallowed == "loggedin" && is_user_logged_in()))) {
+				remove_shortcode('gallery');
+				add_shortcode('gallery', array($this, 'gallery_shortcode'));	
+			}
+		}
+		
+		// Add settings link on plugin page
+		function plugin_action_links($links = array()) { 
+		  $settings_link = '<a href="' . admin_url('options-general.php?page=gallery-voting') . '">' . __('Settings', "gallery-voting") . '</a>'; 
+		  array_unshift($links, $settings_link); 
+		  return $links; 
+		}
+		
 		function post_gallery($output = null, $atts = null, $content = false, $tag = false) {			
 			return $output;
 		}
@@ -270,6 +286,7 @@ if (!class_exists('GalleryVoting')) {
 		function vote() {		
 			global $wpdb;
 			
+			$ip_address = $_SERVER['REMOTE_ADDR'];
 			$max_all = get_option('gallery_voting_max_all');
 			$max_same = get_option('gallery_voting_max_same');
 			$tracking = get_option('gallery_voting_tracking');
@@ -312,7 +329,6 @@ if (!class_exists('GalleryVoting')) {
 							break;
 						case 'ipaddress'		:
 						default					:
-							$ip_address = $_SERVER['REMOTE_ADDR'];
 							$votecountquery = "SELECT COUNT(`id`) FROM " . $wpdb -> prefix . "galleryvotes WHERE `ip_address` = '" . $ip_address . "'";
 							$votecount = $wpdb -> get_var($votecountquery);
 							
@@ -385,6 +401,7 @@ if (!class_exists('GalleryVoting')) {
 				
 			}
 			
+			$usersallowed = get_option('gallery_voting_usersallowed');
 			$max_all = get_option('gallery_voting_max_all');
 			$max_same = get_option('gallery_voting_max_same');
 			$tracking = get_option('gallery_voting_tracking');
@@ -397,6 +414,13 @@ if (!class_exists('GalleryVoting')) {
 				<form action="" method="post">
 					<table class="form-table">
 						<tbody>
+							<tr>
+								<th><label for="usersallowed">Users Allowed</label></th>
+								<td>
+									<label><input <?php echo (!empty($usersallowed) && $usersallowed == "all") ? 'checked="checked"' : ''; ?> type="radio" name="usersallowed" value="all" id="usersallowed_all" /> All Users</label>
+									<label><input <?php echo (!empty($usersallowed) && $usersallowed == "loggedin") ? 'checked="checked"' : ''; ?> type="radio" name="usersallowed" value="loggedin" id="usersallowed_loggedin" /> Logged In Only</label>
+								</td>
+							</tr>
 							<tr>
 								<th><label for="max_all">Max Votes Overall</label></th>
 								<td>
@@ -435,9 +459,10 @@ if (!class_exists('GalleryVoting')) {
 		}
 	}
 	
+	$plugin_file = plugin_basename(__FILE__);
 	$GalleryVoting = new GalleryVoting();
-	remove_shortcode('gallery');
-	add_shortcode('gallery', array($GalleryVoting, 'gallery_shortcode'));
+	add_action('plugins_loaded', array($GalleryVoting, 'plugins_loaded'), 1, 1);
+	add_filter('plugin_action_links_' . $plugin_file, array($GalleryVoting, 'plugin_action_links'), 10, 1);
 	add_filter('post_gallery', array($GalleryVoting, 'post_gallery'), 10, 4);
 	add_filter('gallery_style', array($GalleryVoting, 'gallery_style'), 10, 1);
 	add_action('wp_enqueue_scripts', array($GalleryVoting, 'wp_enqueue_scripts'), 10, 1);
